@@ -1,0 +1,3 @@
+#!c:\users\administrator\desktop\raspberrypi\chatbot\wukong-robot\venv\scripts\python.exe
+from numba.pycc import main
+main()

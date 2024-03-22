@@ -226,6 +226,132 @@ class AnyQRobot(AbstractRobot):
             logger.critical("AnyQ robot failed to response for %r", msg, exc_info=True)
             return "抱歉, AnyQ回答失败"
 
+###调用百度千帆模型
+class QianfanRobot(AbstractRobot):
+
+    SLUG = "qianfan"
+
+    def __init__(
+        self,
+        Access_Key,
+        Secret_Key,
+        model,
+        #provider,
+        #api_version,
+        temperature,
+        max_tokens,
+        top_p,
+        top_k,
+        penalty_score,
+        #presence_penalty,
+        stop_ai,
+        prefix="",
+        #proxy="",
+        #api_base="",
+    ):
+        """
+        千帆大语言平台
+        """
+        super(self.__class__, self).__init__()
+        self.chatai = None
+        try:
+            import qianfan
+            if not Access_Key:
+                Access_Key = os.getenv("Access_Key")
+            if not Secret_Key:
+                Access_Key = os.getenv("Secret_Key")
+            os.environ["QIANFAN_ACCESS_KEY"] = Access_Key
+            os.environ["QIANFAN_SECRET_KEY"] = Secret_Key
+            self.chatai = qianfan.ChatCompletion()
+            # if proxy:
+            #     logger.info(f"{self.SLUG} 使用代理：{proxy}")
+            #     self.chatai.proxy = proxy
+            # else:
+            #     self.chatai.proxy = None
+
+        except Exception:
+            logger.critical("qianfan 初始化失败，请debug")
+        self.model = model
+        self.prefix = prefix
+        #self.provider = provider
+        #self.api_version = api_version
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.top_p = top_p
+        self.top_k = top_k
+        self.penalty_score = penalty_score
+        #self.presence_penalty = presence_penalty
+        self.stop_ai = stop_ai
+        #self.api_base = api_base if api_base else "https://api.openai.com/v1/chat"
+        self.context = []
+
+    @classmethod
+    def get_config(cls):
+        # Try to get anyq config from config
+        return config.get("qianfan", {})
+
+    def stream_chat(self, texts):
+        """
+        从qianfan SDK获取回复
+        :return: 回复
+        """
+        msg = "".join(texts)
+        msg = utils.stripPunctuation(msg)
+        msg = self.prefix + msg  # 增加一段前缀
+        self.context.append({"role": "user", "content": msg})
+        try:
+            respond=self.chatai.do(
+                model=self.model,
+                messages=self.context,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                top_p=self.top_p,
+                stream=True,
+                penalty_score=self.penalty_score,
+                stop=self.stop_ai
+            )
+            generate=respond["body"].get("result","这个问题我无法回答")
+            return generate
+        except Exception:
+            logger.critical(
+                "qianfan robot failed to response for %r", msg, exc_info=True
+            )
+            return "抱歉，目前我无法回答，请稍后尝试"
+
+
+    def chat(self, texts, parsed):
+        """
+        使用qiangan机器人聊天
+
+        Arguments:
+        texts -- user input, typically speech, to be parsed by a module
+        """
+        msg = "".join(texts)
+        msg = utils.stripPunctuation(msg)
+        msg = self.prefix + msg  # 增加一段前缀
+        logger.info("msg: " + msg)
+        try:
+            respond = self.chatai.do(
+                model=self.model,
+                messages=self.context,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                top_p=self.top_p,
+                stream=False,
+                penalty_score=self.penalty_score,
+                stop=self.stop_ai
+            )
+            generate = respond["body"].get("result", "这个问题我无法回答")
+            # message = respond.choices[0].message
+            # respond = message.content
+            # self.context.append(message)
+            return generate
+        except Exception:
+            logger.critical(
+                "openai robot failed to response for %r", msg, exc_info=True
+            )
+            return "抱歉，目前我无法回答，请稍后尝试"
+
 class OPENAIRobot(AbstractRobot):
 
     SLUG = "openai"
